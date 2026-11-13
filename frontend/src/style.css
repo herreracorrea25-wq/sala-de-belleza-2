@@ -41,6 +41,24 @@ body {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
 }
 
+/* Headings placed over the salon photo need stronger contrast than card text. */
+.section-heading .luxury-heading {
+  color: #ffffff !important;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+}
+
+.section-heading .luxury-subtitle {
+  color: #ffffff !important;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+}
+
+.section-heading .sub-title-badge {
+  color: #fff4f7 !important;
+  background: rgba(35, 35, 31, 0.78);
+  border-color: rgba(255, 255, 255, 0.65);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
 /* Botón Estilo Salón (Rosa suave sobre blanco) */
 .btn-esther {
   background: linear-gradient(135deg, #e092ad 0%, #cc7291 100%);

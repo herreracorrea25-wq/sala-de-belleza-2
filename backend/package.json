@@ -2,10 +2,11 @@
   "name": "sala-belleza-backend",
   "version": "1.0.0",
   "description": "Backend para sistema de salón de belleza con Node, Express y MongoDB",
-  "main": "index.js",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "check:api": "node scripts/verificar-api.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

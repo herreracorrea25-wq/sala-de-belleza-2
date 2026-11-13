@@ -3,115 +3,162 @@
     <div class="salon-background"></div>
 
     <div class="form-wrapper">
-      <div class="text-center q-mb-xl">
+      <div class="text-center q-mb-xl section-heading">
         <span class="sub-title-badge">✨ Reservaciones ✨</span>
-        <h1 class="luxury-heading text-h3 text-weight-bold text-dark q-mt-sm q-mb-xs">Agendar cita</h1>
+        <h1 class="luxury-heading text-h3 text-weight-bold text-dark q-mt-sm q-mb-xs">
+          Agendar cita, {{ auth.usuario?.nombre }}
+        </h1>
         <p class="text-subtitle1 text-muted luxury-subtitle">Consulta la agenda semanal de los estilistas y elige un horario disponible.</p>
       </div>
 
       <div class="esther-card">
         <p v-if="errorCarga" class="form-error" role="alert">{{ errorCarga }}</p>
         <form v-else class="esther-form" @submit.prevent="registrarCita">
-          <div class="profile-note">Reservando como <strong>{{ auth.usuario?.nombre || 'Cliente' }}</strong></div>
-
-          <div class="input-group">
-            <label class="input-label">1. ¿Qué servicio quieres agendar?</label>
-            <select v-model="form.servicioId" class="luxury-input" required>
-              <option disabled value="">Seleccione un servicio...</option>
-              <option v-for="servicio in servicios" :key="servicio.id" :value="servicio.id">
-                {{ servicio.nombre }} - ${{ servicio.precio }} ({{ servicio.duracionMinutos }} min)
-              </option>
-            </select>
+          <FormField as="div" class="input-group">
+            <label id="servicio-label" class="input-label">1. ¿Qué servicio quieres agendar?</label>
+            <q-select
+              v-model="form.servicioId"
+              class="salon-select"
+              :options="servicios"
+              option-value="id"
+              option-label="nombre"
+              emit-value
+              map-options
+              outlined
+              rounded
+              behavior="menu"
+              popup-content-class="salon-select-popup"
+              aria-labelledby="servicio-label"
+              placeholder="Seleccione un servicio..."
+            >
+              <template #option="{ itemProps, opt }">
+                <q-item v-bind="itemProps" class="salon-select-option">
+                  <q-item-section>
+                    <q-item-label class="salon-option-name">{{ opt.nombre }}</q-item-label>
+                    <q-item-label caption class="salon-option-detail">
+                      ${{ opt.precio }} <span aria-hidden="true">·</span> {{ opt.duracionMinutos }} min
+                    </q-item-label>
+                  </q-item-section>
+                </q-item>
+              </template>
+            </q-select>
             <div v-if="servicioSeleccionado" class="service-preview">
               <strong>{{ servicioSeleccionado.categoria }}</strong>
               <span>{{ servicioSeleccionado.descripcion }}</span>
               <span><b>Incluye:</b> {{ servicioSeleccionado.incluye.join(' · ') }}</span>
               <router-link to="/servicios">Ver todos los servicios y sus detalles</router-link>
             </div>
-          </div>
+          </FormField>
 
-          <div class="input-group">
-            <label class="input-label">2. ¿Qué día te queda bien?</label>
-            <input type="date" v-model="form.fecha" :min="fechaMinima" class="luxury-input" required />
-          </div>
-
-          <div class="input-group">
-            <label class="input-label">3. Elige el estilista</label>
-            <select v-model="form.estilistaId" class="luxury-input" :disabled="!servicioSeleccionado || !estilistasDisponibles.length" required>
-              <option disabled value="">Selecciona un estilista para consultar su turno...</option>
-              <option v-for="estilista in estilistasDisponibles" :key="estilista._id" :value="estilista._id">
-                {{ estilista.nombre }} · {{ estilista.especialidad }} ·
-                {{ diasTexto(estilista.diasTrabajo || [1, 2, 3, 4, 5, 6]) }} ·
-                {{ estilista.horaInicioTrabajo || '09:00' }}–{{ estilista.horaFinTrabajo || '18:00' }}
-              </option>
-            </select>
+          <FormField as="div" class="input-group">
+            <label id="estilista-label" class="input-label">2. Elige el estilista</label>
+            <q-select
+              v-model="form.estilistaId"
+              class="salon-select"
+              :options="estilistasDisponibles"
+              option-value="_id"
+              option-label="nombre"
+              emit-value
+              map-options
+              outlined
+              rounded
+              behavior="menu"
+              popup-content-class="salon-select-popup"
+              aria-labelledby="estilista-label"
+              :disable="!servicioSeleccionado || !estilistasDisponibles.length"
+              placeholder="Selecciona un estilista para consultar su turno..."
+            >
+              <template #option="{ itemProps, opt }">
+                <q-item v-bind="itemProps" class="salon-select-option">
+                  <q-item-section>
+                    <q-item-label class="salon-option-name">{{ opt.nombre }}</q-item-label>
+                    <q-item-label class="salon-option-detail">{{ opt.especialidad }}</q-item-label>
+                    <q-item-label caption class="salon-option-schedule">
+                      {{ diasTexto(opt.diasTrabajo || [1, 2, 3, 4, 5, 6]) }} ·
+                      {{ opt.horaInicioTrabajo || '09:00' }}–{{ opt.horaFinTrabajo || '18:00' }}
+                    </q-item-label>
+                  </q-item-section>
+                </q-item>
+              </template>
+            </q-select>
             <span v-if="servicioSeleccionado && estilistasDisponibles.length === 0" class="form-error" role="status">
               Por ahora no hay un estilista con especialidad en {{ servicioSeleccionado.nombre }}. Elige otro servicio o consulta más tarde.
             </span>
             <span v-else-if="!form.estilistaId" class="status-help">
-              Al elegirlo, verás sus horas libres para el servicio y la fecha seleccionados.
+              Al elegirlo, podrás seleccionar un día y consultar sus horas disponibles.
             </span>
-          </div>
+          </FormField>
 
           <section v-if="form.servicioId && form.estilistaId" class="weekly-agenda" aria-live="polite">
             <div class="weekly-agenda-heading">
               <div>
-                <h2>Agenda semanal de {{ estilistaSeleccionado?.nombre }}</h2>
-                <p>Solo se muestran los horarios disponibles; las citas de otras personas son privadas.</p>
+                <span class="agenda-step">3. Selecciona un día</span>
+                <h2>Agenda de {{ estilistaSeleccionado?.nombre }}</h2>
+                <p>Elige un día para consultar sus horas disponibles.</p>
               </div>
               <div class="week-navigation">
-                <button type="button" aria-label="Semana anterior" @click="moverSemana(-7)">‹</button>
+                <AppButton type="button" aria-label="Semana anterior" @click="moverSemana(-7)">‹</AppButton>
                 <span>{{ rangoSemana }}</span>
-                <button type="button" aria-label="Semana siguiente" @click="moverSemana(7)">›</button>
+                <AppButton type="button" aria-label="Semana siguiente" @click="moverSemana(7)">›</AppButton>
               </div>
             </div>
             <p v-if="cargandoAgendaSemanal" class="availability-message">Consultando la agenda de la semana...</p>
             <p v-else-if="errorAgendaSemanal" class="form-error" role="alert">{{ errorAgendaSemanal }}</p>
             <div v-else class="weekly-agenda-days">
-              <button
+              <AppButton
                 v-for="dia in diasAgendaSemanal"
                 :key="dia.fecha"
                 type="button"
                 class="weekly-agenda-day"
-                :class="{ selected: form.fecha === dia.fecha, disabled: dia.pasado || !dia.horarios.length }"
-                :disabled="dia.pasado"
+                :class="{ selected: form.fecha === dia.fecha }"
+                :disabled="dia.pasado || !dia.horarios.length"
+                :aria-pressed="form.fecha === dia.fecha"
                 @click="form.fecha = dia.fecha"
               >
                 <strong>{{ dia.nombre }}</strong>
                 <span v-if="dia.pasado" class="weekly-agenda-empty">Pasado</span>
                 <template v-else-if="dia.horarios.length">
-                  <span class="weekly-agenda-count">{{ dia.horarios.length }} {{ dia.horarios.length === 1 ? 'horario libre' : 'horarios libres' }}</span>
-                  <span class="weekly-agenda-slots">{{ dia.horarios.map((slot) => slot.horaInicio).join(' · ') }}</span>
+                  <span class="weekly-agenda-count">{{ dia.horarios.length }} {{ dia.horarios.length === 1 ? 'hora disponible' : 'horas disponibles' }}</span>
                 </template>
-                <span v-else class="weekly-agenda-empty">{{ dia.consultado ? 'Sin horarios libres' : 'No disponible' }}</span>
-              </button>
+                <span v-else class="weekly-agenda-empty">{{ dia.consultado ? 'Sin disponibilidad' : 'No disponible' }}</span>
+              </AppButton>
             </div>
           </section>
 
-          <div v-if="disponibilidad" class="availability-summary">
-            <strong>Turno de {{ estilistaSeleccionado?.nombre }}:</strong>
-            {{ diasTexto(disponibilidad.horario.diasTrabajo) }},
-            {{ disponibilidad.horario.horaInicio }}–{{ disponibilidad.horario.horaFin }}.
-            <span>{{ disponibilidad.ocupacion.citas }} citas y {{ disponibilidad.ocupacion.porcentaje }}% del turno ocupado.</span>
-          </div>
+          <p v-if="avisoAgenda" class="busy-warning" role="status">{{ avisoAgenda }}</p>
 
-          <p v-if="cargandoDisponibilidad" class="availability-message">Consultando la agenda del estilista y tus horarios...</p>
-          <p v-else-if="avisoAgenda" class="busy-warning" role="status">{{ avisoAgenda }}</p>
-
-          <div class="input-group">
-            <label class="input-label">Horario de inicio y disponibilidad</label>
-            <select v-model="form.horaInicio" class="luxury-input" :disabled="cargandoDisponibilidad || !disponibilidad?.slots.length" required>
-              <option disabled value="">Selecciona un horario...</option>
-              <option
-                v-for="slot in disponibilidad?.slots || []"
+          <section v-if="form.estilistaId && form.fecha" class="time-picker">
+            <div class="time-picker-heading">
+              <div>
+                <span class="agenda-step">4. Elige tu horario</span>
+                <p>Selecciona la hora que mejor te convenga.</p>
+              </div>
+              <span v-if="horariosDisponibles.length" class="time-count">
+                {{ horariosDisponibles.length }} disponibles
+              </span>
+            </div>
+            <div v-if="cargandoDisponibilidad" class="time-picker-state" role="status">
+              Consultando horarios...
+            </div>
+            <div v-else-if="horariosDisponibles.length" class="time-slots" role="group" aria-label="Horas disponibles">
+              <AppButton
+                type="button"
+                class="time-slot"
+                :class="{ selected: form.horaInicio === slot.horaInicio }"
+                v-for="slot in horariosDisponibles"
                 :key="slot.horaInicio"
-                :value="slot.horaInicio"
-                :disabled="!slot.disponible"
+                :aria-pressed="form.horaInicio === slot.horaInicio"
+                @click="form.horaInicio = slot.horaInicio"
               >
-                {{ slot.horaInicio }}–{{ slot.horaFin }} · {{ slot.disponible ? 'Disponible' : slot.motivos.join(' ') }}
-              </option>
-            </select>
-          </div>
+                <span class="time-slot-start">{{ slot.horaInicio }}</span>
+                <span class="time-slot-end">hasta {{ slot.horaFin }}</span>
+                <span v-if="form.horaInicio === slot.horaInicio" class="time-slot-check" aria-hidden="true">✓</span>
+              </AppButton>
+            </div>
+            <p v-else-if="disponibilidad" class="time-picker-state" role="status">
+              No hay horas disponibles este día. Prueba con otra fecha.
+            </p>
+          </section>
 
           <p v-if="slotSeleccionado?.disponible" class="availability-message success-message" role="status">
             {{ estilistaSeleccionado.nombre }} tiene libre de {{ slotSeleccionado.horaInicio }} a {{ slotSeleccionado.horaFin }},
@@ -132,13 +179,13 @@
           </section>
 
           <div class="q-mt-xl">
-            <button
+            <AppButton
               type="submit"
               class="btn-esther full-width"
               :disabled="guardando || cargandoDisponibilidad || !slotSeleccionado?.disponible"
             >
               {{ guardando ? 'Enviando solicitud...' : 'Solicitar cita al estilista' }}
-            </button>
+            </AppButton>
           </div>
         </form>
       </div>
@@ -161,6 +208,8 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useAuthStore } from '../stores/authStore';
 import { API_URL } from '../config/api';
 import { normalizarEspecialidad, presentarServicio } from '../config/servicios';
+import AppButton from '../components/AppButton.vue';
+import FormField from '../components/FormField.vue';
 
 const auth = useAuthStore();
 
@@ -188,13 +237,22 @@ const form = ref({ servicioId: '', estilistaId: '', fecha: fechaMinima, horaInic
 const servicioSeleccionado = computed(() => servicios.value.find((servicio) => servicio.id === form.value.servicioId));
 const estilistasDisponibles = computed(() => {
   if (!servicioSeleccionado.value) return [];
-  const servicioNormalizado = normalizarEspecialidad(servicioSeleccionado.value.nombre);
-  return estilistas.value.filter((estilista) =>
-    normalizarEspecialidad(estilista.especialidad) === servicioNormalizado
-  );
+  const servicio = servicioSeleccionado.value;
+  const servicioNormalizado = normalizarEspecialidad(servicio.nombre);
+  return estilistas.value.filter((estilista) => {
+    const asignados = Array.isArray(estilista.servicios) ? estilista.servicios : [];
+    return asignados.length
+      ? asignados.some((asignado) =>
+        String(asignado) === String(servicio.id) || normalizarEspecialidad(asignado) === servicioNormalizado
+      )
+      : String(estilista.especialidad || '')
+        .split(',')
+        .some((especialidad) => normalizarEspecialidad(especialidad) === servicioNormalizado);
+  });
 });
 const estilistaSeleccionado = computed(() => estilistasDisponibles.value.find((estilista) => estilista._id === form.value.estilistaId));
 const slotSeleccionado = computed(() => disponibilidad.value?.slots.find((slot) => slot.horaInicio === form.value.horaInicio));
+const horariosDisponibles = computed(() => disponibilidad.value?.slots.filter((slot) => slot.disponible) || []);
 const fechaInicioSemana = computed(() => {
   const [anio, mes, dia] = (form.value.fecha || fechaMinima).split('-').map(Number);
   const fecha = new Date(anio, mes - 1, dia);
@@ -402,9 +460,9 @@ onMounted(async () => {
 .esther-page { position: relative; min-height: 100vh; overflow: hidden; }
 .salon-background {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  background-image: linear-gradient(rgba(252, 251, 249, 0.82), rgba(252, 251, 249, 0.88)), 
-                    url('https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=80&w=1920');
-  background-size: cover; background-position: center; z-index: 1;
+  background: linear-gradient(125deg, rgba(35, 35, 31, .65), rgba(105, 75, 69, .18)),
+              url('https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=85&w=1800') center/cover;
+  z-index: 1;
 }
 .form-wrapper { position: relative; z-index: 2; width: 100%; max-width: 1000px; padding: 20px 0; }
 .sub-title-badge {
@@ -421,20 +479,36 @@ onMounted(async () => {
 .profile-note { padding: 12px 16px; border-left: 3px solid #b3637e; background: #fff4f7; color: #5c5559; }
 .time-error { margin: -12px 0 0; color: #a32d3d; font-size: 0.9rem; }
 .form-error { margin: 0; color: #a32d3d; font-size: .9rem; line-height: 1.5; }
-.availability-summary { display: grid; gap: 5px; padding: 13px 16px; border: 1px solid #e9d8de; border-radius: 11px; background: #fff9fb; color: #554b4a; font-size: .9rem; }
-.weekly-agenda { display: grid; gap: 16px; padding: 18px; border: 1px solid #ead5dd; border-radius: 14px; background: #fffafb; }
+.weekly-agenda { display: grid; gap: 16px; padding: 20px; border: 1px solid #ead5dd; border-radius: 14px; background: #fffafb; }
 .weekly-agenda-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .weekly-agenda-heading h2 { margin: 0; color: #8f455e; font: 700 1.1rem 'Playfair Display', Georgia, serif; }
 .weekly-agenda-heading p { margin: 5px 0 0; color: #766a6d; font-size: .82rem; }
+.agenda-step { display: inline-block; margin-bottom: 5px; color: #b3637e; font-size: .76rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .week-navigation { display: flex; align-items: center; gap: 10px; color: #62585c; font-size: .82rem; white-space: nowrap; }
 .week-navigation button { width: 32px; height: 32px; border: 1px solid #ead5dd; border-radius: 50%; background: white; color: #8f455e; font-size: 1.2rem; cursor: pointer; }
-.weekly-agenda-days { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.weekly-agenda-day { display: grid; align-content: start; gap: 8px; min-height: 116px; padding: 12px; border: 1px solid #ead5dd; border-radius: 11px; background: white; color: #554b4a; text-align: left; cursor: pointer; }
+.weekly-agenda-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.weekly-agenda-day { display: grid; align-content: center; justify-items: center; gap: 8px; min-height: 88px; padding: 10px 6px; border: 1px solid #ead5dd; border-radius: 11px; background: white; color: #554b4a; text-align: center; cursor: pointer; transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+.weekly-agenda-day:not(:disabled):hover { transform: translateY(-2px); border-color: #c47b93; }
+.weekly-agenda-day:focus-visible { outline: 3px solid rgba(179, 99, 126, .3); outline-offset: 2px; }
 .weekly-agenda-day.selected { border-color: #b3637e; box-shadow: 0 0 0 2px rgba(179, 99, 126, .12); }
-.weekly-agenda-day.disabled { background: #f8f5f6; color: #958b8f; cursor: default; }
+.weekly-agenda-day:disabled { background: #f8f5f6; color: #958b8f; cursor: default; }
+.weekly-agenda-day strong { font-size: .82rem; line-height: 1.35; text-transform: capitalize; }
 .weekly-agenda-count { color: #28764b; font-size: .78rem; font-weight: 700; }
-.weekly-agenda-slots { color: #62585c; font-size: .75rem; line-height: 1.5; overflow-wrap: anywhere; }
 .weekly-agenda-empty { color: #766a6d; font-size: .78rem; }
+.time-picker { display: grid; gap: 16px; padding: 20px; border: 1px solid #efdce3; border-radius: 16px; background: linear-gradient(135deg, #fffafb 0%, #fff 58%, #fcf3f6 100%); box-shadow: 0 10px 24px rgba(143, 69, 94, .06); }
+.time-picker-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.time-picker-heading p { margin: 2px 0 0; color: #766a6d; font-size: .86rem; }
+.time-count { padding: 7px 11px; border: 1px solid #d5eadb; border-radius: 999px; background: #f1faf3; color: #28764b; font-size: .77rem; font-weight: 700; white-space: nowrap; }
+.time-slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.time-slot { position: relative; display: grid; justify-items: start; gap: 5px; min-height: 78px; padding: 14px; border: 1px solid #ead5dd; border-radius: 12px; background: rgba(255, 255, 255, .9); color: #554b4a; text-align: left; cursor: pointer; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease; }
+.time-slot:hover { transform: translateY(-2px); border-color: #c47b93; box-shadow: 0 7px 16px rgba(143, 69, 94, .1); }
+.time-slot:focus-visible { outline: 3px solid rgba(179, 99, 126, .3); outline-offset: 2px; }
+.time-slot.selected { border-color: #a64e6b; background: linear-gradient(135deg, #b3637e, #96506a); color: #fff; box-shadow: 0 7px 16px rgba(143, 69, 94, .2); }
+.time-slot-start { font-size: 1.08rem; font-weight: 700; letter-spacing: .01em; }
+.time-slot-end { color: #80747a; font-size: .76rem; }
+.time-slot.selected .time-slot-end { color: rgba(255, 255, 255, .82); }
+.time-slot-check { position: absolute; top: 9px; right: 10px; display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%; background: rgba(255, 255, 255, .2); color: white; font-size: .75rem; }
+.time-picker-state { margin: 0; padding: 15px; border: 1px dashed #e2cbd4; border-radius: 11px; background: rgba(255, 255, 255, .65); color: #766a6d; font-size: .88rem; text-align: center; }
 .availability-message { margin: 0; color: #62585c; font-size: .9rem; line-height: 1.5; }
 .service-preview { display: grid; gap: 7px; padding: 13px 15px; border: 1px solid #ead5dd; border-radius: 11px; background: #fffafb; color: #5c5559; font-size: .87rem; line-height: 1.5; }
 .service-preview strong { color: #8f455e; font-size: .74rem; letter-spacing: .8px; }
@@ -466,6 +540,89 @@ onMounted(async () => {
   background-color: #fff9fb; border: 1px solid rgba(216, 131, 158, 0.3); color: #232023;
   padding: 12px 16px; border-radius: 12px; outline: none; font-size: 0.95rem; transition: all 0.3s ease; width: 100%;
 }
+:deep(.salon-select .q-field__control) {
+  min-height: 56px;
+  border-radius: 16px;
+  background: #fff9fb;
+  box-shadow: 0 4px 12px rgba(143, 69, 94, .045);
+  color: #352b30;
+  transition: box-shadow .2s ease, background .2s ease;
+}
+:deep(.salon-select.q-field--outlined .q-field__control:before) {
+  border: 1px solid #e8cbd5;
+  border-radius: 16px;
+}
+:deep(.salon-select.q-field--outlined .q-field__control:hover:before) {
+  border-color: #c47b93;
+}
+:deep(.salon-select.q-field--focused .q-field__control) {
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(216, 131, 158, .12), 0 6px 16px rgba(143, 69, 94, .08);
+}
+:deep(.salon-select.q-field--focused.q-field--outlined .q-field__control:after) {
+  border-color: #a65370;
+  border-radius: 16px;
+}
+:deep(.salon-select .q-field__native),
+:deep(.salon-select .q-field__input) {
+  color: #352b30;
+  font-size: .95rem;
+}
+:deep(.salon-select .q-field__marginal) { color: #a65370; }
+:deep(.salon-select.q-field--disabled .q-field__control) {
+  background: #f7f1f3;
+  opacity: .82;
+}
+:global(.salon-select-popup) {
+  max-height: min(45vh, 360px) !important;
+  overflow-y: auto;
+  padding: 7px;
+  border: 1px solid #ead5dd;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .99);
+  box-shadow: 0 16px 36px rgba(72, 39, 51, .16);
+  backdrop-filter: blur(12px);
+}
+:global(.salon-select-popup .q-item) {
+  min-height: 58px;
+  margin: 3px 0;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: #352b30;
+  transition: background .16s ease, border-color .16s ease, color .16s ease;
+}
+:global(.salon-select-popup .q-item:hover),
+:global(.salon-select-popup .q-item--active) {
+  border-color: #f0dbe3;
+  background: #fff4f7;
+  color: #8f455e;
+}
+:global(.salon-select-popup .q-item--selected) {
+  border-color: #ebcbd6;
+  background: linear-gradient(100deg, #fff2f6, #fffafb);
+  color: #8f455e;
+}
+:global(.salon-option-name) { font-size: .94rem; font-weight: 600; }
+:global(.salon-option-detail) { color: #8f455e !important; font-size: .84rem; font-weight: 600; }
+:global(.salon-option-schedule) { color: #766a6d !important; font-size: .77rem; line-height: 1.4; }
+:deep(.salon-select .q-field__append .q-icon) {
+  display: none;
+}
+:deep(.salon-select .q-field__append::after) {
+  content: '';
+  width: 10px;
+  height: 10px;
+  margin: 0 4px;
+  border-right: 2px solid #a65370;
+  border-bottom: 2px solid #a65370;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform .2s ease;
+}
+:deep(.salon-select.q-field--focused .q-field__append::after) {
+  transform: translateY(3px) rotate(225deg);
+}
 .luxury-input:focus { border-color: #b3637e; box-shadow: 0 0 0 4px rgba(216, 131, 158, 0.15); background-color: #ffffff; }
 .btn-esther {
   background: linear-gradient(135deg, #d8839e 0%, #b3637e 100%); color: white; border: none; padding: 14px;
@@ -479,6 +636,13 @@ onMounted(async () => {
   .esther-card { padding: 24px 18px; }
   .weekly-agenda-heading { align-items: flex-start; flex-direction: column; }
   .weekly-agenda-days { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .weekly-agenda-day { min-height: 100px; padding: 10px; }
+  .weekly-agenda-day { min-height: 76px; padding: 10px; }
+  .time-picker { padding: 16px; }
+  .time-slots { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .time-slot { min-height: 70px; padding: 12px; }
+}
+@media (min-width: 601px) and (max-width: 900px) {
+  .weekly-agenda-days { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .time-slots { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 </style>

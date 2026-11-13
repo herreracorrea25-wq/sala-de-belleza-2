@@ -3,7 +3,7 @@
     <div class="salon-background"></div>
 
     <div class="content-wrapper">
-      <div class="q-mb-xl text-center">
+      <div class="q-mb-xl text-center section-heading">
         <span class="sub-title-badge">✨ Directorio ✨</span>
         <h1 class="luxury-heading text-h3 text-weight-bold text-dark q-mt-sm q-mb-xs">Clientes Habituales</h1>
         <p class="text-subtitle1 text-muted luxury-subtitle">Gestión exclusiva y personalizada de nuestra distinguida clientela</p>
@@ -21,6 +21,7 @@
                   <span class="client-name">{{ c.nombre }}</span>
                   <span class="client-details">📞 {{ c.telefono }} &nbsp;|&nbsp; ✉️ {{ c.email }}</span>
                 </div>
+                <AppButton class="edit-button" type="button" @click="editarCliente(c)">Editar datos</AppButton>
               </div>
 
               <div v-if="clientes.length === 0" class="empty-state">
@@ -34,30 +35,38 @@
         <!-- Columna Derecha: Formulario -->
         <div class="col-12 col-md-5">
           <div class="esther-card">
-            <div class="text-h6 luxury-heading text-pink text-weight-bold q-mb-md">Registrar Nuevo Cliente</div>
+            <div class="text-h6 luxury-heading text-pink text-weight-bold q-mb-md">
+              {{ editandoId ? 'Editar Cliente' : 'Registrar Nuevo Cliente' }}
+            </div>
             
             <form @submit.prevent="agregarCliente" class="esther-form">
-              <div class="input-group">
-                <label class="input-label">Nombre completo</label>
+              <FormField class="input-group">
+                <span class="input-label">Nombre completo</span>
                 <input v-model="nuevo.nombre" type="text" placeholder="Ej. Sofía Vergara" class="luxury-input" required />
-              </div>
+              </FormField>
 
-              <div class="input-group">
-                <label class="input-label">Teléfono</label>
+              <FormField class="input-group">
+                <span class="input-label">Teléfono</span>
                 <input v-model="nuevo.telefono" type="text" placeholder="Ej. 300 123 4567" class="luxury-input" required />
-              </div>
+              </FormField>
 
-              <div class="input-group">
-                <label class="input-label">Correo electrónico</label>
+              <FormField class="input-group">
+                <span class="input-label">Correo electrónico</span>
                 <input v-model="nuevo.email" type="email" placeholder="Ej. sofia@email.com" class="luxury-input" required />
-              </div>
+              </FormField>
+              <FormField v-if="!editandoId" class="input-group">
+                <span class="input-label">Contraseña inicial</span>
+                <input v-model="nuevo.password" type="password" minlength="8" autocomplete="new-password" class="luxury-input" required />
+                <small class="form-hint">El cliente podrá cambiarla después desde Mi cuenta.</small>
+              </FormField>
               <p v-if="error" class="form-error" role="alert">{{ error }}</p>
               <p v-if="mensaje" class="form-success" role="status">{{ mensaje }}</p>
               
               <div class="q-mt-md">
-                <button type="submit" class="btn-esther full-width" :disabled="guardando">
-                  {{ guardando ? 'Guardando...' : 'Registrar Cliente' }}
-                </button>
+                <AppButton type="submit" class="btn-esther full-width" :disabled="guardando">
+                  {{ guardando ? 'Guardando...' : editandoId ? 'Guardar cambios' : 'Registrar Cliente' }}
+                </AppButton>
+                <AppButton v-if="editandoId" type="button" class="cancel-edit-button full-width" @click="cancelarEdicion">Cancelar edición</AppButton>
               </div>
             </form>
           </div>
@@ -71,10 +80,13 @@
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '../stores/authStore';
 import { API_URL } from '../config/api';
+import AppButton from '../components/AppButton.vue';
+import FormField from '../components/FormField.vue';
 
 const clientes = ref([]);
-const nuevo = ref({ nombre: '', telefono: '', email: '' });
+const nuevo = ref({ nombre: '', telefono: '', email: '', password: '' });
 const auth = useAuthStore();
+const editandoId = ref('');
 const error = ref('');
 const errorCarga = ref('');
 const mensaje = ref('');
@@ -94,21 +106,36 @@ const cargarClientes = async () => {
   }
 };
 
+const editarCliente = (cliente) => {
+  editandoId.value = cliente._id;
+  nuevo.value = { nombre: cliente.nombre, telefono: cliente.telefono, email: cliente.email, password: '' };
+  error.value = '';
+  mensaje.value = '';
+};
+
+const cancelarEdicion = () => {
+  editandoId.value = '';
+  nuevo.value = { nombre: '', telefono: '', email: '', password: '' };
+  error.value = '';
+  mensaje.value = '';
+};
+
 const agregarCliente = async () => {
   if (guardando.value) return;
   guardando.value = true;
   error.value = '';
   mensaje.value = '';
   try {
-    const res = await fetch(`${API_URL}/clientes`, {
-      method: 'POST',
+    const editando = Boolean(editandoId.value);
+    const res = await fetch(`${API_URL}/clientes${editando ? `/${editandoId.value}` : ''}`, {
+      method: editando ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json', ...auth.encabezadosAutenticados() },
       body: JSON.stringify(nuevo.value)
     });
     const resultado = await res.json();
     if (!res.ok) throw new Error(resultado.error || 'No se pudo guardar el cliente.');
-    nuevo.value = { nombre: '', telefono: '', email: '' };
-    mensaje.value = 'El cliente se guardó correctamente en la base de datos.';
+    cancelarEdicion();
+    mensaje.value = resultado.mensaje || 'El cliente se guardó correctamente en la base de datos.';
     await cargarClientes();
   } catch (err) {
     error.value = err.message || 'No se pudo conectar con el servidor.';
@@ -124,9 +151,9 @@ onMounted(cargarClientes);
 .esther-page { position: relative; min-height: 100vh; overflow-x: hidden; }
 .salon-background {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  background-image: linear-gradient(rgba(252, 251, 249, 0.82), rgba(252, 251, 249, 0.88)), 
-                    url('https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=80&w=1920');
-  background-size: cover; background-position: center; z-index: 1;
+  background: linear-gradient(125deg, rgba(35, 35, 31, .65), rgba(105, 75, 69, .18)),
+              url('https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=85&w=1800') center/cover;
+  z-index: 1;
 }
 .content-wrapper { position: relative; z-index: 2; width: 100%; max-width: 1100px; margin: 0 auto; }
 .sub-title-badge {
@@ -155,12 +182,16 @@ onMounted(cargarClientes);
 }
 .client-item:hover { background-color: #fff5f8; border-color: #d8839e; transform: translateY(-1px); }
 .client-info { display: flex; flex-direction: column; gap: 4px; }
+.client-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .client-name { font-weight: 600; color: #232023; font-size: 1.05rem; }
 .client-details { font-size: 0.85rem; color: #5c5559; }
 .empty-state { text-align: center; padding: 40px 20px; }
 .empty-icon { font-size: 2.5rem; display: block; margin-bottom: 12px; }
 .form-error { margin: 0; color: #a32d3d; font-size: .9rem; }
 .form-success { margin: 0; color: #28764b; font-size: .9rem; }
+.form-hint { color: #71676c; font-size: .8rem; }
+.edit-button, .cancel-edit-button { border: 1px solid #b3637e; border-radius: 8px; padding: 8px 12px; background: #fff; color: #8f455e; font-weight: 600; cursor: pointer; }
+.cancel-edit-button { margin-top: 10px; }
 .btn-esther {
   background: linear-gradient(135deg, #d8839e 0%, #b3637e 100%); color: white; border: none; padding: 12px;
   border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 6px 20px rgba(216, 131, 158, 0.3);

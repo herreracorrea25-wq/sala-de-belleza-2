@@ -3,7 +3,7 @@
     <div class="salon-background"></div>
 
     <div class="agenda-wrapper">
-      <div class="q-mb-xl text-center header-container">
+      <div class="q-mb-xl text-center header-container section-heading">
         <span class="sub-title-badge">✨ Panel Exclusivo ✨</span>
         <h1 class="luxury-heading text-h3 text-weight-bold text-dark q-mt-sm q-mb-xs">
           Agenda de {{ auth.usuario?.nombre || 'Administrador' }}
@@ -20,9 +20,9 @@
               <div class="text-h6 luxury-heading text-pink text-weight-bold">Mi horario de trabajo</div>
               <p class="week-caption">Las reservas solo estarán disponibles dentro de este turno.</p>
             </div>
-            <button class="save-hours-button" type="button" :disabled="guardandoHorario || !horarioCargado" @click="guardarHorario">
+            <AppButton class="save-hours-button" type="button" :disabled="guardandoHorario || !horarioCargado" @click="guardarHorario">
               {{ guardandoHorario ? 'Guardando...' : 'Guardar horario' }}
-            </button>
+            </AppButton>
           </div>
           <div class="work-hours-controls">
             <div class="work-days">
@@ -32,8 +32,8 @@
               </label>
             </div>
             <div class="work-time-controls">
-              <label>Desde <input v-model="horario.horaInicioTrabajo" type="time" min="09:00" max="17:30" /></label>
-              <label>Hasta <input v-model="horario.horaFinTrabajo" type="time" min="09:30" max="18:00" /></label>
+              <FormField>Desde <input v-model="horario.horaInicioTrabajo" type="time" min="09:00" max="17:30" /></FormField>
+              <FormField>Hasta <input v-model="horario.horaFinTrabajo" type="time" min="09:30" max="18:00" /></FormField>
             </div>
           </div>
           <p v-if="errorHorario" class="load-error" role="alert">{{ errorHorario }}</p>
@@ -47,13 +47,13 @@
               <p class="week-caption">{{ rangoSemana }}</p>
             </div>
             <div class="calendar-actions">
-              <button
+              <AppButton
                 type="button"
                 class="week-button"
                 :disabled="!puedeSemanaAnterior"
                 aria-label="Ver semana anterior"
                 @click="cambiarSemana(-1)"
-              >‹</button>
+              >‹</AppButton>
               <input
                 v-model="fechaSeleccionada"
                 :min="fechaMinima"
@@ -61,12 +61,12 @@
                 class="date-input-luxury"
                 aria-label="Elegir fecha de agenda"
               />
-              <button type="button" class="week-button" aria-label="Ver semana siguiente" @click="cambiarSemana(1)">›</button>
+              <AppButton type="button" class="week-button" aria-label="Ver semana siguiente" @click="cambiarSemana(1)">›</AppButton>
             </div>
           </div>
 
           <div class="week-days">
-            <button
+            <AppButton
               v-for="dia in diasSemana"
               :key="dia.fecha"
               type="button"
@@ -83,7 +83,7 @@
               <span v-if="!dia.cerrado && !errorCarga" class="day-appointments">
                 {{ dia.citas }} {{ dia.citas === 1 ? 'cita' : 'citas' }} · {{ dia.disponibles }} libres
               </span>
-            </button>
+            </AppButton>
           </div>
         </section>
 
@@ -147,19 +147,46 @@
                 <small v-if="cita.clienteId?.telefono">Teléfono: {{ cita.clienteId.telefono }}</small>
                 <small v-if="cita.clienteId?.email">Correo: {{ cita.clienteId.email }}</small>
               </div>
+              <div v-if="avisosEstilista(cita).length" class="appointment-notices" role="status">
+                <p v-for="(aviso, indice) in avisosEstilista(cita)" :key="`${aviso.creadaEn}-${indice}`">{{ aviso.mensaje }}</p>
+              </div>
+              <div v-if="cita.propuestaCambio" class="change-proposal">
+                <template v-if="cita.propuestaCambio.propuestoPor === 'cliente'">
+                  <strong>El cliente propone otro horario</strong>
+                  <span>{{ cita.propuestaCambio.fecha }} · {{ cita.propuestaCambio.horaInicio }}–{{ cita.propuestaCambio.horaFin }}</span>
+                  <div class="response-actions">
+                    <AppButton type="button" class="accept-button" :disabled="respondiendo === cita._id" @click="gestionarCita(cita, 'responder', 'aceptar')">Aceptar cambio</AppButton>
+                    <AppButton type="button" class="reject-button" :disabled="respondiendo === cita._id" @click="gestionarCita(cita, 'responder', 'rechazar')">Rechazar cambio</AppButton>
+                  </div>
+                </template>
+                <p v-else>Tu propuesta para cambiar la cita está pendiente de respuesta del cliente.</p>
+              </div>
               <div class="appointment-response">
                 <span class="status-badge" :class="`status-${cita.estado || 'confirmada'}`">
                   {{ textoEstado(cita.estado) }}
                 </span>
-                <div v-if="cita.estado === 'pendiente'" class="response-actions">
-                  <button type="button" class="accept-button" :disabled="respondiendo === cita._id" @click="responderCita(cita, 'confirmada')">
+                <div v-if="cita.estado === 'pendiente' && !cita.propuestaCambio" class="response-actions">
+                  <AppButton type="button" class="accept-button" :disabled="respondiendo === cita._id" @click="responderCita(cita, 'confirmada')">
                     Aceptar
-                  </button>
-                  <button type="button" class="reject-button" :disabled="respondiendo === cita._id" @click="responderCita(cita, 'rechazada')">
+                  </AppButton>
+                  <AppButton type="button" class="reject-button" :disabled="respondiendo === cita._id" @click="responderCita(cita, 'rechazada')">
                     Rechazar
-                  </button>
+                  </AppButton>
                 </div>
               </div>
+              <div v-if="!cita.propuestaCambio && ['pendiente', 'confirmada'].includes(cita.estado)" class="appointment-response response-actions">
+                <AppButton type="button" class="change-button" @click="abrirPropuesta(cita)">Proponer otro horario</AppButton>
+                <AppButton type="button" class="reject-button" :disabled="respondiendo === cita._id" @click="gestionarCita(cita, 'cancelar')">Cancelar cita</AppButton>
+              </div>
+              <form v-if="citaAplazando === cita._id" class="proposal-form" @submit.prevent="gestionarCita(cita, 'proponer')">
+                <FormField>Nueva fecha <input v-model="propuestaForm.fecha" type="date" :min="fechaMinima" required /></FormField>
+                <FormField>Hora de inicio <input v-model="propuestaForm.horaInicio" type="time" step="1800" required /></FormField>
+                <p>El cliente deberá aceptar la propuesta. El horario se verificará antes de enviarla.</p>
+                <div class="response-actions">
+                  <AppButton type="submit" class="accept-button" :disabled="respondiendo === cita._id">Enviar propuesta</AppButton>
+                  <AppButton type="button" class="change-button" @click="citaAplazando = ''">Cerrar</AppButton>
+                </div>
+              </form>
             </article>
           </div>
           <div v-else-if="!errorCarga" class="empty-state">
@@ -177,6 +204,8 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useAuthStore } from '../stores/authStore';
 import { API_URL } from '../config/api';
+import AppButton from '../components/AppButton.vue';
+import FormField from '../components/FormField.vue';
 
 const hoy = new Date();
 const fechaLocal = fechaAISO(hoy);
@@ -190,6 +219,7 @@ const mensajeHorario = ref('');
 const horarioCargado = ref(false);
 const guardandoHorario = ref(false);
 const respondiendo = ref('');
+const citaAplazando = ref('');
 const horario = ref({ diasTrabajo: [1, 2, 3, 4, 5, 6], horaInicioTrabajo: '09:00', horaFinTrabajo: '18:00' });
 const diasLaborales = [
   { id: 1, nombre: 'Lun' },
@@ -200,6 +230,7 @@ const diasLaborales = [
   { id: 6, nombre: 'Sáb' }
 ];
 const auth = useAuthStore();
+const propuestaForm = ref({ fecha: fechaLocal, horaInicio: '09:00' });
 
 function fechaAISO(fecha) {
   return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
@@ -374,7 +405,17 @@ async function guardarHorario() {
 function textoEstado(estado) {
   if (estado === 'pendiente') return 'Pendiente de respuesta';
   if (estado === 'rechazada') return 'Rechazada';
+  if (estado === 'cancelada') return 'Cancelada';
   return 'Confirmada';
+}
+
+function avisosEstilista(cita) {
+  return (cita.avisos || []).filter((aviso) => aviso.paraRol === 'estilista');
+}
+
+function abrirPropuesta(cita) {
+  citaAplazando.value = cita._id;
+  propuestaForm.value = { fecha: fechaLocal, horaInicio: '09:00' };
 }
 
 function fechaCitaTexto(fecha) {
@@ -406,6 +447,34 @@ async function responderCita(cita, estado) {
   }
 }
 
+async function gestionarCita(cita, accion, decision) {
+  respondiendo.value = cita._id;
+  errorCarga.value = '';
+  try {
+    const body = accion === 'proponer'
+      ? { accion, ...propuestaForm.value }
+      : { accion, ...(decision ? { decision } : {}) };
+    const response = await fetch(`${API_URL}/citas/${cita._id}/gestion`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...auth.encabezadosAutenticados() },
+      body: JSON.stringify(body)
+    });
+    const resultado = await response.json();
+    if (!response.ok) throw new Error(resultado.error || 'No se pudo actualizar la cita.');
+    citaAplazando.value = '';
+    if (accion === 'responder' && decision === 'aceptar') {
+      fechaSeleccionada.value = resultado.cita.fecha;
+    } else {
+      const indice = citasSemana.value.findIndex((item) => item._id === cita._id);
+      if (indice !== -1) citasSemana.value[indice] = resultado.cita;
+    }
+  } catch (error) {
+    errorCarga.value = error.message || 'No se pudo actualizar la cita.';
+  } finally {
+    respondiendo.value = '';
+  }
+}
+
 watch(fechaSeleccionada, (fecha) => {
   const nuevaSemana = lunesDe(fecha);
   if (nuevaSemana !== inicioSemana.value) inicioSemana.value = nuevaSemana;
@@ -431,10 +500,8 @@ onMounted(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: linear-gradient(rgba(252, 251, 249, 0.82), rgba(252, 251, 249, 0.88)), 
-                    url('https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=80&w=1920');
-  background-size: cover;
-  background-position: center;
+  background: linear-gradient(125deg, rgba(35, 35, 31, .65), rgba(105, 75, 69, .18)),
+              url('https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=85&w=1800') center/cover;
   z-index: 1;
 }
 
@@ -534,15 +601,25 @@ onMounted(() => {
 .appointment-detail small { color: #766a6d; }
 .appointment-time { display: grid; justify-items: start; gap: 7px; color: #766a6d; font-size: .83rem; text-transform: capitalize; }
 .appointment-response { display: grid; justify-items: start; gap: 8px; }
+.appointment-notices, .change-proposal, .proposal-form { display: grid; gap: 8px; padding: 11px 13px; border: 1px solid #ead5dd; border-radius: 10px; background: #fffafb; color: #704455; font-size: .84rem; }
+.appointment-notices { border-left: 3px solid #b3637e; }
+.appointment-notices p, .change-proposal p { margin: 0; }
+.change-proposal > span { color: #62585c; }
+.proposal-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.proposal-form label { display: grid; gap: 6px; }
+.proposal-form input { min-width: 0; padding: 9px; border: 1px solid #e5d5dc; border-radius: 8px; }
+.proposal-form p, .proposal-form .response-actions { grid-column: 1 / -1; }
 .status-badge { display: inline-block; padding: 6px 10px; border-radius: 20px; font-size: .75rem; font-weight: 700; }
 .status-pendiente { background: #fff4dc; color: #78550a; }
 .status-confirmada { background: #eaf7ee; color: #28764b; }
 .status-rechazada { background: #f6e9ec; color: #954458; }
+.status-cancelada { background: #f2edf0; color: #62585c; }
 .response-actions { display: flex; flex-wrap: wrap; gap: 7px; }
-.accept-button, .reject-button { padding: 7px 10px; border: 0; border-radius: 8px; font-weight: 700; cursor: pointer; }
+.accept-button, .reject-button, .change-button { padding: 7px 10px; border: 0; border-radius: 8px; font-weight: 700; cursor: pointer; }
 .accept-button { background: #e7f5ec; color: #28764b; }
 .reject-button { background: #fff0f2; color: #a32d3d; }
-.accept-button:disabled, .reject-button:disabled { opacity: .55; cursor: wait; }
+.change-button { background: #f2edf0; color: #62585c; }
+.accept-button:disabled, .reject-button:disabled, .change-button:disabled { opacity: .55; cursor: wait; }
 .empty-state { text-align: center; padding: 38px 20px; }
 .empty-icon { display: block; margin-bottom: 10px; font-size: 2.5rem; }
 .empty-hint { display: block; margin-top: 6px; color: #9c9096; font-size: .82rem; }
@@ -556,6 +633,7 @@ onMounted(() => {
   .week-days { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .availability-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .appointment-row { grid-template-columns: 1fr; gap: 9px; }
+  .proposal-form { grid-template-columns: 1fr; }
   .work-hours-controls { align-items: stretch; flex-direction: column; }
   .work-time-controls { flex-wrap: wrap; }
 }

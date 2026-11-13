@@ -7,49 +7,55 @@
       <p class="auth-intro">{{ registrando ? 'Crea tu cuenta y registra tus datos.' : `Ingresa a tu espacio de ${rol === 'cliente' ? 'cliente' : 'estilista'}.` }}</p>
 
       <div class="role-switch" role="group" aria-label="Tipo de perfil">
-        <button type="button" :aria-pressed="rol === 'cliente'" :class="{ selected: rol === 'cliente' }" @click="seleccionarRol('cliente')">Cliente</button>
-        <button type="button" :aria-pressed="rol === 'estilista'" :class="{ selected: rol === 'estilista' }" @click="seleccionarRol('estilista')">Estilista</button>
+        <AppButton type="button" :aria-pressed="rol === 'cliente'" :class="{ selected: rol === 'cliente' }" @click="seleccionarRol('cliente')">Cliente</AppButton>
+        <AppButton type="button" :aria-pressed="rol === 'estilista'" :class="{ selected: rol === 'estilista' }" @click="seleccionarRol('estilista')">Estilista</AppButton>
       </div>
 
       <form :key="`${registrando}-${rol}`" class="auth-form" autocomplete="off" @submit.prevent="enviar">
-        <label v-if="registrando">
+        <FormField v-if="registrando">
           Nombre y apellido
           <input v-model.trim="form.nombre" autocomplete="name" required pattern=".*\s+.*" title="Escribe al menos un nombre y un apellido." />
-        </label>
-        <label>
+        </FormField>
+        <FormField>
           Correo electrónico
           <input v-model.trim="form.email" type="email" :autocomplete="registrando ? 'email' : 'off'" required />
-        </label>
-        <label>
+        </FormField>
+        <FormField>
           Contraseña
           <input v-model="form.password" type="password" :autocomplete="registrando ? 'new-password' : 'off'" :minlength="registrando ? 8 : undefined" required />
-        </label>
-        <label v-if="registrando && rol === 'cliente'">
+        </FormField>
+        <FormField v-if="registrando">
           Teléfono
-          <input v-model.trim="form.telefono" type="tel" autocomplete="tel" required />
-        </label>
+          <input v-model.trim="form.telefono" type="tel" autocomplete="tel" :required="rol === 'cliente'" />
+        </FormField>
         <div v-if="registrando && rol === 'estilista'" class="specialty-field">
-          <label for="specialty">Especialidad</label>
-          <select id="specialty" v-model="form.especialidad" required>
-            <option disabled value="">
-              {{ cargandoServicios ? 'Cargando servicios...' : 'Selecciona una especialidad' }}
-            </option>
-            <option v-for="servicio in servicios" :key="servicio.id" :value="servicio.nombre">
-              {{ servicio.nombre }}
-            </option>
-          </select>
+          <span>Servicios que realizas</span>
+          <label v-for="servicio in servicios" :key="servicio.id" class="service-option">
+            <input v-model="form.servicios" type="checkbox" :value="servicio.id" />
+            {{ servicio.nombre }}
+          </label>
+          <p v-if="!cargandoServicios && !servicios.length" class="form-error">No hay servicios disponibles para seleccionar.</p>
+          <FormField>
+            Código de invitación
+            <input v-model.trim="form.codigoInvitacion" type="password" autocomplete="off" required />
+          </FormField>
+          <p class="invite-help">
+            Solicítalo a la persona administradora del salón. Si administras el proyecto, consúltalo o configúralo de forma privada en
+            <code>backend/.env</code> con la variable <code>STYLIST_INVITE_CODE</code>.
+          </p>
+          <p v-if="!form.servicios.length" class="form-error">Selecciona al menos un servicio.</p>
           <p v-if="errorServicios" class="form-error" role="alert">{{ errorServicios }}</p>
         </div>
 
         <p v-if="error" class="form-error" role="alert">{{ error }}</p>
-        <button class="submit-button" type="submit" :disabled="enviando || (registrando && rol === 'estilista' && (cargandoServicios || !servicios.length))">
+        <AppButton class="submit-button" type="submit" :disabled="enviando || (registrando && rol === 'estilista' && (cargandoServicios || !servicios.length || !form.servicios.length))">
           {{ enviando ? 'Procesando...' : registrando ? 'Crear cuenta' : 'Entrar' }}
-        </button>
+        </AppButton>
       </form>
 
-      <button class="mode-button" type="button" @click="cambiarModo">
+      <AppButton class="mode-button" type="button" @click="cambiarModo">
         {{ registrando ? 'Ya tengo cuenta' : 'Crear cuenta nueva' }}
-      </button>
+      </AppButton>
     </section>
   </q-page>
 </template>
@@ -59,6 +65,8 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import { API_URL } from '../config/api'
+import AppButton from '../components/AppButton.vue'
+import FormField from '../components/FormField.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -75,7 +83,8 @@ const form = reactive({
   email: '',
   password: '',
   telefono: '',
-  especialidad: ''
+  servicios: [],
+  codigoInvitacion: ''
 })
 
 onMounted(async () => {
@@ -107,7 +116,8 @@ function limpiarFormulario() {
     email: '',
     password: '',
     telefono: '',
-    especialidad: ''
+    servicios: [],
+    codigoInvitacion: ''
   })
   error.value = ''
 }
@@ -131,7 +141,12 @@ async function enviar() {
       password: form.password, 
       rol: rol.value,
       telefono: form.telefono,
-      especialidad: form.especialidad
+      servicios: form.servicios,
+      especialidad: servicios.value
+        .filter((servicio) => form.servicios.includes(servicio.id))
+        .map((servicio) => servicio.nombre)
+        .join(', '),
+      codigoInvitacion: form.codigoInvitacion
     }
     
     if (registrando.value) {
@@ -164,6 +179,10 @@ h1 { margin: 0; color: #292525; font: 700 2rem/1.15 'Playfair Display', Georgia,
 .auth-form input, .auth-form select { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #d8cdca; border-radius: 4px; background: #fff; color: #292525; font: inherit; }
 .auth-form input:focus, .auth-form select:focus { outline: 2px solid #b3637e; outline-offset: 1px; }
 .specialty-field { display: grid; gap: 7px; color: #554b4a; font-size: .88rem; font-weight: 600; }
+.invite-help { margin: 0; color: #766a6d; font-size: .78rem; font-weight: 400; line-height: 1.5; }
+.invite-help code { padding: 1px 4px; border-radius: 4px; background: #f8eef2; color: #8f455e; font-size: .76rem; }
+.service-option { display: flex !important; grid-template-columns: auto 1fr !important; align-items: center; font-weight: 400 !important; }
+.service-option input { width: 18px; min-height: 18px; accent-color: #8f455e; }
 .form-error { margin: 0; color: #a32d3d; font-size: .9rem; }
 .submit-button { min-height: 46px; border: 0; border-radius: 4px; background: #8f455e; color: #fff; font-weight: 700; cursor: pointer; }
 .submit-button:disabled { opacity: .65; cursor: wait; }

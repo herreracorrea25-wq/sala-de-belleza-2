@@ -7,6 +7,7 @@ import {
   Quasar,
   QBanner,
   QBtn,
+  QDialog,
   QForm,
   QHeader,
   QInput,
@@ -40,6 +41,7 @@ app.use(Quasar, {
   components: {
     QBanner,
     QBtn,
+    QDialog,
     QForm,
     QHeader,
     QInput,

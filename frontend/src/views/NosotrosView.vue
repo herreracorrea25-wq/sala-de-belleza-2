@@ -55,9 +55,9 @@
 /* Fondo mejorado del salón: imagen de alta calidad, nítida y con un degradado suave */
 .salon-background {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background-image: linear-gradient(rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.65)), 
-                    url('https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=95&w=2000');
-  background-size: cover; background-position: center; z-index: 1;
+  background: linear-gradient(125deg, rgba(35, 35, 31, .65), rgba(105, 75, 69, .18)),
+              url('https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=85&w=1800') center/cover;
+  z-index: 1;
 }
 
 .form-container { position: relative; z-index: 2; width: 100%; max-width: 850px; padding: 20px; }
